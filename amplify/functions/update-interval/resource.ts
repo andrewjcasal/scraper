@@ -1,5 +1,4 @@
 import { defineFunction, secret } from "@aws-amplify/backend";
-import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 
 export const updateInterval = defineFunction({
   name: "update-interval",

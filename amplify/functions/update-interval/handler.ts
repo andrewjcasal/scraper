@@ -110,22 +110,21 @@ async function handleScraping() {
   console.log('Scraping job running at:', new Date().toISOString());
   
   try {
-    const response = await axios.get('http://books.toscrape.com/');
+    const response = await axios.get('https://finance.yahoo.com/markets/stocks/trending/');
     const html = response.data;
     const $ = cheerio.load(html);
 
-    const books: { title: string; price: string }[] = [];
-    $('.product_pod').each((index: number, element: cheerio.Element)=> {
-      const title = $(element).find('h3 a').attr('title') || '';
-      const price = $(element).find('.price_color').text() || '';
-      books.push({ title, price });
-    });
+    const stocks: { title: string; price: string }[] = [];
+    const cell = $('.markets-table tr').first();
+    const title = $(cell).find('td').first().text().trim() || '';
+    const price = $(cell).find('td').eq(3).text() || '';
+    stocks.push({ title, price });
 
-    console.log('Books scraped:', books);
+    console.log('Stocks scraped:', stocks);
 
     const { data, error } = await supabase
       .from('books')
-      .insert(books);
+      .insert(stocks);
 
     if (error) {
       console.error('Error inserting books into Supabase:', error);

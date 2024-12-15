@@ -29,6 +29,8 @@ export default function App() {
           value={interval}
           onChange={(e) => setInterval(e.target.value)}
         >
+          <option value="every minute">Every Minute</option>
+          <option value="every three minutes">Every Three Minutes</option>
           <option value="hourly">Hourly</option>
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>

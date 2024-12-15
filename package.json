@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.5.5",
+    "@supabase/supabase-js": "^2.47.7",
+    "@types/cheerio": "^0.22.35",
     "aws-amplify": "^6.6.6",
     "axios": "^1.7.9",
     "cheerio": "^1.0.0",

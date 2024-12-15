@@ -1,7 +1,12 @@
 import type { APIGatewayProxyHandler, APIGatewayProxyEvent } from "aws-lambda";
 import cron from "node-cron";
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
+import { createClient } from '@supabase/supabase-js';
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''; 
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 let currentJob: cron.ScheduledTask | null = null;
 // Extend the APIGatewayProxyEvent type
@@ -63,13 +68,24 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   
       // Scrape book titles and prices
       const books: { title: string; price: string }[] = [];
-      $('.product_pod').each((index, element) => {
+      $('.product_pod').each((index: number, element: cheerio.Element)=> {
         const title = $(element).find('h3 a').attr('title') || '';
         const price = $(element).find('.price_color').text() || '';
         books.push({ title, price });
       });
   
       console.log('Books scraped:', books);
+
+      // Insert books into Supabase
+      const { data, error } = await supabase
+        .from('books') // Replace with your table name
+        .insert(books);
+  
+      if (error) {
+        console.error('Error inserting books into Supabase:', error);
+      } else {
+        console.log('Books inserted into Supabase:', data);
+      }
     } catch (error) {
       console.error('Error scraping the website:', error);
     }

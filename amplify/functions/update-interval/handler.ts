@@ -1,23 +1,36 @@
-import type { APIGatewayProxyHandler } from "aws-lambda";
+import type { APIGatewayProxyHandler, APIGatewayProxyEvent } from "aws-lambda";
 import cron from "node-cron";
+import axios from 'axios';
+import cheerio from 'cheerio';
 
 let currentJob: cron.ScheduledTask | null = null;
+// Extend the APIGatewayProxyEvent type
+interface CustomAPIGatewayProxyEvent extends APIGatewayProxyEvent {
+  arguments: {
+    interval: string;
+  };
+}
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  console.log("event", event);
-  
-  if (!event.body) {
+export const handler: APIGatewayProxyHandler = async (event) => { 
+  const customEvent = event as CustomAPIGatewayProxyEvent;
+  if (!customEvent.arguments.interval) {
     return {
       statusCode: 400,
       body: JSON.stringify({ message: JSON.stringify(event) }),
     };
   }
 
-  const { interval } = JSON.parse(event.body);
+  const { interval } = JSON.parse(customEvent.arguments.interval);
   let cronExpression: string;
 
   // Define the cron expression based on the selected interval
   switch (interval) {
+    case 'every minute':
+      cronExpression = '* * * * *'; // Run every minute
+      break;
+    case 'every three minutes':
+      cronExpression = '*/3 * * * *'; // Run every three minutes
+      break;
     case 'hourly':
       cronExpression = '0 * * * *'; // Run at the top of every hour
       break;
@@ -40,9 +53,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   // Schedule the new cron job
-  currentJob = cron.schedule(cronExpression, () => {
+  currentJob = cron.schedule(cronExpression, async () => {
     console.log('Scraping job running...');
-    // Insert scraping logic here
+  
+    try {
+      const response = await axios.get('http://books.toscrape.com/'); // Example book website
+      const html = response.data;
+      const $ = cheerio.load(html);
+  
+      // Scrape book titles and prices
+      const books: { title: string; price: string }[] = [];
+      $('.product_pod').each((index, element) => {
+        const title = $(element).find('h3 a').attr('title') || '';
+        const price = $(element).find('.price_color').text() || '';
+        books.push({ title, price });
+      });
+  
+      console.log('Books scraped:', books);
+    } catch (error) {
+      console.error('Error scraping the website:', error);
+    }
   });
 
   return {

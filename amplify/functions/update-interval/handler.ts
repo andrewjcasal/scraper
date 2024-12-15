@@ -14,7 +14,7 @@ interface CustomAPIGatewayProxyEvent extends APIGatewayProxyEvent {
   };
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => { 
+export const handler: APIGatewayProxyHandler = async (event, context) => { 
   const customEvent = event as CustomAPIGatewayProxyEvent;
   if (!customEvent.arguments.interval) {
     return {
@@ -74,7 +74,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       Targets: [
         {
           Id: 'ScraperFunction',
-          Arn: process.env.LAMBDA_ARN as string, // We'll need to add this env var
+          Arn: context.invokedFunctionArn,
           Input: JSON.stringify({ action: 'scrape' }),
         },
       ],

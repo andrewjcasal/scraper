@@ -14,10 +14,15 @@ interface CustomAPIGatewayProxyEvent extends APIGatewayProxyEvent {
   };
 }
 
+interface EventBridgeEvent extends APIGatewayProxyEvent {
+  source: string;
+  // Add other properties you expect from the EventBridge event
+}
+
 export const handler: APIGatewayProxyHandler = async (event, context) => { 
   console.log('Event:', event);
   // Check if this is an EventBridge scheduled event
-  if (event.source === 'aws.events') {
+  if ((event as EventBridgeEvent).source === 'aws.events') {
     // This is a scheduled event, perform scraping
     return handleScraping();
   }

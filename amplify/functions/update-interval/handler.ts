@@ -15,6 +15,14 @@ interface CustomAPIGatewayProxyEvent extends APIGatewayProxyEvent {
 }
 
 export const handler: APIGatewayProxyHandler = async (event, context) => { 
+  console.log('Event:', event);
+  // Check if this is an EventBridge scheduled event
+  if (event.source === 'aws.events') {
+    // This is a scheduled event, perform scraping
+    return handleScraping();
+  }
+
+  // This is an API request to set up the schedule
   const customEvent = event as CustomAPIGatewayProxyEvent;
   if (!customEvent.arguments.interval) {
     return {
@@ -75,7 +83,6 @@ export const handler: APIGatewayProxyHandler = async (event, context) => {
         {
           Id: 'ScraperFunction',
           Arn: context.invokedFunctionArn,
-          Input: JSON.stringify({ action: 'scrape' }),
         },
       ],
     });
@@ -93,8 +100,8 @@ export const handler: APIGatewayProxyHandler = async (event, context) => {
   }
 };
 
-// Separate handler for the scraping task
-export const scrapeHandler: APIGatewayProxyHandler = async (event) => {
+// Helper function to handle the scraping logic
+async function handleScraping() {
   console.log('Scraping job running at:', new Date().toISOString());
   
   try {
@@ -132,4 +139,4 @@ export const scrapeHandler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({ message: 'Error during scraping' }),
     };
   }
-};
+}

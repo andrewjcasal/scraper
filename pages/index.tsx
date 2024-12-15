@@ -5,40 +5,36 @@ import type { Schema } from "@/amplify/data/resource";
 const client = generateClient<Schema>();
 
 export default function App() {
-  const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
+  const [interval, setInterval] = useState("hourly"); // Default to hourly
 
-  function listTodos() {
-    client.models.Todo.observeQuery().subscribe({
-      next: (data) => setTodos([...data.items]),
-    });
-  }
-
-  useEffect(() => {
-    listTodos();
-  }, []);
-
-  function createTodo() {
-    client.models.Todo.create({
-      content: window.prompt("Todo content"),
-    });
-  }
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      client.mutations.updateInterval({
+        interval,
+      });
+      alert("Scraping interval updated!");
+    } catch (error) {
+      console.error("Error updating interval", error);
+      alert("Error updating interval");
+    }
+  };
 
   return (
     <main>
-      <h1>My todos</h1>
-      <button onClick={createTodo}>+ new</button>
-      <ul>
-        {todos.map((todo) => (
-          <li key={todo.id}>{todo.content}</li>
-        ))}
-      </ul>
-      <div>
-        🥳 App successfully hosted. Try creating a new todo.
-        <br />
-        <a href="https://docs.amplify.aws/gen2/start/quickstart/nextjs-pages-router/">
-          Review next steps of this tutorial.
-        </a>
-      </div>
+      <form onSubmit={handleSubmit}>
+        <label htmlFor="interval">Select Scraping Interval: </label>
+        <select
+          id="interval"
+          value={interval}
+          onChange={(e) => setInterval(e.target.value)}
+        >
+          <option value="hourly">Hourly</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
+        <button type="submit">Update Interval</button>
+      </form>
     </main>
   );
 }

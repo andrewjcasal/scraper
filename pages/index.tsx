@@ -1,4 +1,8 @@
 import { useState, useEffect } from "react";
+import { generateClient } from "@aws-amplify/api";
+import { Schema } from "@/amplify/data/resource";
+
+const client = generateClient<Schema>();
 
 export default function App() {
   const [interval, setInterval] = useState("hourly"); // Default to hourly
@@ -9,7 +13,9 @@ export default function App() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
-      // Call your update interval function here (if needed)
+      client.mutations.updateInterval({
+        interval: interval,
+      });
       alert("Scraping interval updated!");
     } catch (error) {
       console.error("Error updating interval", error);
@@ -26,7 +32,12 @@ export default function App() {
         throw new Error(data.error);
       }
 
-      setBooks(data);
+      setBooks(
+        data.sort(
+          (a: { created_at: string }, b: { created_at: string }) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+      );
     } catch (error) {
       console.error("Error fetching books:", error);
     }
@@ -36,23 +47,18 @@ export default function App() {
     fetchBooks();
   }, []);
 
-  // Function to format the created_at timestamp
-  const formatDuration = (dateString: string) => {
-    const now = new Date();
-    const createdAt = new Date(dateString);
-    const diffInSeconds = Math.floor(
-      (now.getTime() - createdAt.getTime()) / 1000
-    );
-
-    if (diffInSeconds < 60) {
-      return `${diffInSeconds} sec ago`;
-    } else if (diffInSeconds < 3600) {
-      const minutes = Math.floor(diffInSeconds / 60);
-      return `${minutes} min ago`;
-    } else {
-      const hours = Math.floor(diffInSeconds / 3600);
-      return `${hours} hr ago`;
-    }
+  // Replace the formatDuration function with this new formatDateTime function
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    date.setHours(date.getHours() - 5);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
   return (
@@ -82,7 +88,7 @@ export default function App() {
         </button>
       </form>
 
-      <h2>List of Books</h2>
+      <h2>List of Books Scraped Randomly</h2>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
@@ -103,7 +109,7 @@ export default function App() {
                 {book.price}
               </td>
               <td style={{ border: "1px solid #ddd", padding: "8px" }}>
-                {formatDuration(book.created_at)}
+                {formatDateTime(book.created_at)}
               </td>
             </tr>
           ))}

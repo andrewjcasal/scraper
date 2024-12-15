@@ -23,8 +23,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({ message: JSON.stringify(event) }),
     };
   }
-  console.log('customEvent:', customEvent);
-  const { interval } = JSON.parse(customEvent.arguments.interval);
+  const { interval } = customEvent.arguments;
   let cronExpression: string;
 
   // Define the cron expression based on the selected interval

@@ -1,9 +1,5 @@
 import { type ClientSchema, a, defineData, defineFunction } from "@aws-amplify/backend";
-
-const updateIntervalHandler = defineFunction({
-  entry: "../functions/update-interval/handler.ts",
-  name: "update-interval",
-});
+import { updateInterval } from "../functions/update-interval/resource";
 
 const schema = a.schema({
   Todo: a
@@ -18,7 +14,7 @@ const schema = a.schema({
     })
     .returns(a.string())
     .authorization((allow) => [allow.publicApiKey()])
-    .handler(a.handler.function(updateIntervalHandler)),
+    .handler(a.handler.function(updateInterval)),
 });
 
 export type Schema = ClientSchema<typeof schema>;

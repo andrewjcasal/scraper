@@ -110,21 +110,23 @@ async function handleScraping() {
   console.log('Scraping job running at:', new Date().toISOString());
   
   try {
-    const response = await axios.get('https://finance.yahoo.com/markets/stocks/trending/');
-    const html = response.data;
-    const $ = cheerio.load(html);
+    const response = await axios.get('http://books.toscrape.com/catalogue/category/books_1/index.html');
+    const $ = cheerio.load(response.data);
+    const books: { title: string; price: string }[] = [];
 
-    const stocks: { title: string; price: string }[] = [];
-    const cell = $('.markets-table tr').first();
-    const title = $(cell).find('td').first().text().trim() || '';
-    const price = $(cell).find('td').eq(3).text() || '';
-    stocks.push({ title, price });
+    // Scrape all books
+    $('.product_pod').each((index, element) => {
+        const title = $(element).find('h3 a').attr('title') || '';
+        const price = $(element).find('.price_color').text() || '';
+        books.push({ title, price });
+    });
 
-    console.log('Stocks scraped:', stocks);
+    // Select a random book
+    const randomBook = books[Math.floor(Math.random() * books.length)];
 
     const { data, error } = await supabase
       .from('books')
-      .insert(stocks);
+      .insert([randomBook]);
 
     if (error) {
       console.error('Error inserting books into Supabase:', error);

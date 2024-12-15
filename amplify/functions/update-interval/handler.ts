@@ -4,12 +4,12 @@ import cron from "node-cron";
 let currentJob: cron.ScheduledTask | null = null;
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-
+  console.log("event", event);
   
   if (!event.body) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: 'Missing request body' }),
+      body: JSON.stringify({ message: JSON.stringify(event) }),
     };
   }
 

@@ -1,14 +1,13 @@
 import type { APIGatewayProxyHandler, APIGatewayProxyEvent } from "aws-lambda";
-import cron from "node-cron";
+import { EventBridge } from "@aws-sdk/client-eventbridge";
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { createClient } from '@supabase/supabase-js';
 import { env } from "$amplify/env/update-interval";
 
 const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+const eventbridge = new EventBridge({ region: "us-east-1" });
 
-let currentJob: cron.ScheduledTask | null = null;
-// Extend the APIGatewayProxyEvent type
 interface CustomAPIGatewayProxyEvent extends APIGatewayProxyEvent {
   arguments: {
     interval: string;
@@ -23,25 +22,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({ message: JSON.stringify(event) }),
     };
   }
-  const { interval } = customEvent.arguments;
-  let cronExpression: string;
 
-  // Define the cron expression based on the selected interval
+  const { interval } = customEvent.arguments;
+  let scheduleExpression: string;
+
+  // Convert interval to EventBridge schedule expression
   switch (interval) {
     case 'every minute':
-      cronExpression = '* * * * *'; // Run every minute
+      scheduleExpression = 'rate(1 minute)';
       break;
     case 'every three minutes':
-      cronExpression = '*/3 * * * *'; // Run every three minutes
+      scheduleExpression = 'rate(3 minutes)';
       break;
     case 'hourly':
-      cronExpression = '0 * * * *'; // Run at the top of every hour
+      scheduleExpression = 'rate(1 hour)';
       break;
     case 'daily':
-      cronExpression = '0 0 * * *'; // Run once a day at midnight
+      scheduleExpression = 'rate(1 day)';
       break;
     case 'weekly':
-      cronExpression = '0 0 * * 0'; // Run once a week on Sunday at midnight
+      scheduleExpression = 'rate(7 days)';
       break;
     default:
       return {
@@ -50,47 +50,86 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
   }
 
-  // Cancel the existing cron job if it exists
-  if (currentJob) {
-    currentJob.stop();
-  }
-
-  // Schedule the new cron job
-  currentJob = cron.schedule(cronExpression, async () => {
-    console.log('Scraping job running...');
-  
+  try {
+    // Delete existing rule if it exists
     try {
-      const response = await axios.get('http://books.toscrape.com/'); // Example book website
-      const html = response.data;
-      const $ = cheerio.load(html);
-  
-      // Scrape book titles and prices
-      const books: { title: string; price: string }[] = [];
-      $('.product_pod').each((index: number, element: cheerio.Element)=> {
-        const title = $(element).find('h3 a').attr('title') || '';
-        const price = $(element).find('.price_color').text() || '';
-        books.push({ title, price });
+      await eventbridge.deleteRule({
+        Name: 'WebScraperSchedule',
       });
-  
-      console.log('Books scraped:', books);
-
-      // Insert books into Supabase
-      const { data, error } = await supabase
-        .from('books') // Replace with your table name
-        .insert(books);
-  
-      if (error) {
-        console.error('Error inserting books into Supabase:', error);
-      } else {
-        console.log('Books inserted into Supabase:', data);
-      }
     } catch (error) {
-      console.error('Error scraping the website:', error);
+      // Ignore error if rule doesn't exist
     }
-  });
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: `Interval set to ${interval}` }),
-  };
+    // Create new EventBridge rule
+    await eventbridge.putRule({
+      Name: 'WebScraperSchedule',
+      ScheduleExpression: scheduleExpression,
+      State: 'ENABLED',
+      Description: `Schedule for web scraping every ${interval}`,
+    });
+
+    // Add target to the rule (this Lambda function)
+    await eventbridge.putTargets({
+      Rule: 'WebScraperSchedule',
+      Targets: [
+        {
+          Id: 'ScraperFunction',
+          Arn: process.env.LAMBDA_ARN as string, // We'll need to add this env var
+          Input: JSON.stringify({ action: 'scrape' }),
+        },
+      ],
+    });
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: `Schedule set to ${interval}` }),
+    };
+  } catch (error) {
+    console.error('Error setting up EventBridge schedule:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Error setting up schedule' }),
+    };
+  }
+};
+
+// Separate handler for the scraping task
+export const scrapeHandler: APIGatewayProxyHandler = async (event) => {
+  console.log('Scraping job running at:', new Date().toISOString());
+  
+  try {
+    const response = await axios.get('http://books.toscrape.com/');
+    const html = response.data;
+    const $ = cheerio.load(html);
+
+    const books: { title: string; price: string }[] = [];
+    $('.product_pod').each((index: number, element: cheerio.Element)=> {
+      const title = $(element).find('h3 a').attr('title') || '';
+      const price = $(element).find('.price_color').text() || '';
+      books.push({ title, price });
+    });
+
+    console.log('Books scraped:', books);
+
+    const { data, error } = await supabase
+      .from('books')
+      .insert(books);
+
+    if (error) {
+      console.error('Error inserting books into Supabase:', error);
+    } else {
+      console.log('Books inserted into Supabase:', data);
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Scraping completed successfully' }),
+    };
+  } catch (error) {
+    console.error('Error scraping the website:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Error during scraping' }),
+    };
+  }
 };

@@ -13,6 +13,19 @@ const backend = defineBackend({
   updateInterval,
 });
 
+// Add EventBridge permissions to the Lambda function
+backend.updateInterval.resources.lambda.addToRolePolicy(
+  new PolicyStatement({
+    actions: [
+      'events:PutRule',
+      'events:DeleteRule',
+      'events:PutTargets',
+      'events:RemoveTargets',
+    ],
+    resources: ['*'],
+  })
+);
+
 // create a new API stack
 const apiStack = backend.createStack("api-stack");
 

@@ -2,6 +2,7 @@ import { type ClientSchema, a, defineData, defineFunction } from "@aws-amplify/b
 
 const updateIntervalHandler = defineFunction({
   entry: "../functions/update-interval/handler.ts",
+  name: "update-interval",
 });
 
 const schema = a.schema({
